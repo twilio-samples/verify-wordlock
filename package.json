@@ -43,5 +43,26 @@
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   },
-  "packageManager": "pnpm@10.24.0"
+  "packageManager": "pnpm@10.24.0",
+  "pnpm": {
+    "packageExtensions": {
+      "@twilio-paste/chart-provider": {
+        "peerDependenciesMeta": {
+          "highcharts": {
+            "optional": true
+          }
+        }
+      },
+      "@twilio-paste/data-visualization-library": {
+        "peerDependenciesMeta": {
+          "highcharts": {
+            "optional": true
+          }
+        }
+      }
+    },
+    "overrides": {
+      "highcharts": "-"
+    }
+  }
 }
