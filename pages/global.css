@@ -1,0 +1,1175 @@
+/* ---------------------------------------------------------------
+   Verify Wordlock — "Vault Line" visual system
+   A live-event puzzle: verify your phone, crack a passphrase,
+   pop a physical lockbox. The design borrows from the object
+   itself — brushed steel panels, rivets, stencil plates, and the
+   amber / green / grey status lights of a combination lock.
+------------------------------------------------------------------ */
+
+:root {
+  --bg: #1a1d22;
+  --bg-vignette: radial-gradient(120% 120% at 50% -10%, #232730 0%, #1a1d22 55%, #14161a 100%);
+  --plate: #23262c;
+  --plate-2: #1e2126;
+  --border: #383d46;
+  --border-soft: #2c3038;
+
+  --ink: #f4f1ea;
+  --ink-dim: #9aa0ab;
+  --ink-faint: #6b7280;
+
+  --amber: #ffb020;
+  --amber-ink: #1a1206;
+  --green: #34c77b;
+  --green-ink: #08201230;
+  --red: #f2394a;
+  --steel: #6b7280;
+
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --font-display: "Bebas Neue", "Arial Narrow", sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg);
+  background-image: var(--bg-vignette);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Page shell
+------------------------------------------------------------------ */
+
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+
+.brandbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 22px;
+  text-decoration: none;
+}
+
+.brandbar img {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+
+.brandbar__rule {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.brandbar__mark {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.plate {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(180deg, var(--plate) 0%, var(--plate-2) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(24px, 6vw, 34px) clamp(20px, 5vw, 28px) clamp(28px, 6vw, 34px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 30px 60px -20px rgba(0, 0, 0, 0.65);
+}
+
+.plate::before,
+.plate::after,
+.plate__rivet-tl,
+.plate__rivet-tr {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #575d68, var(--plate-2) 70%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.plate::before {
+  top: 12px;
+  left: 12px;
+}
+
+.plate::after {
+  top: 12px;
+  right: 12px;
+}
+
+.plate__rivet-tl {
+  bottom: 12px;
+  left: 12px;
+}
+
+.plate__rivet-tr {
+  bottom: 12px;
+  right: 12px;
+}
+
+.page__foot {
+  max-width: 440px;
+  text-align: center;
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--ink-faint);
+  padding: 0 12px;
+}
+
+.page__foot a {
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+
+.dev-reset-link {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------
+   Status strip — the signature element.
+   Three stages of the pickup: verify, crack, claim.
+------------------------------------------------------------------ */
+
+.status-strip {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: clamp(20px, 5vw, 28px);
+}
+
+.status-strip__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 84px;
+}
+
+.status-strip__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.status-strip__rail {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin-top: 5px;
+  min-width: 12px;
+}
+
+.status-strip__label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color 0.2s;
+}
+
+.status-strip__step--done .status-strip__dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(52, 199, 123, 0.2), 0 0 10px rgba(52, 199, 123, 0.5);
+}
+
+.status-strip__step--done .status-strip__label {
+  color: var(--ink-dim);
+}
+
+.status-strip__step--active .status-strip__dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px rgba(255, 176, 32, 0.22), 0 0 10px rgba(255, 176, 32, 0.55);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.status-strip__step--active .status-strip__label {
+  color: var(--ink);
+}
+
+.status-strip__step--fail .status-strip__dot {
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(242, 57, 74, 0.22), 0 0 10px rgba(242, 57, 74, 0.55);
+}
+
+.status-strip__step--fail .status-strip__label {
+  color: var(--ink);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ---------------------------------------------------------------
+   Typography
+------------------------------------------------------------------ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: 0 0 8px;
+}
+
+.display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: clamp(2rem, 8.5vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+
+.lede {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  margin: 0 0 20px;
+}
+
+.fine {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+.channel-page__storage {
+  margin-bottom: 16px;
+}
+
+.channel-page__consent {
+  margin-top: 18px;
+}
+
+.rule {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 22px 0;
+}
+
+/* ---------------------------------------------------------------
+   Buttons + links
+------------------------------------------------------------------ */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 54px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--amber);
+  color: var(--amber-ink);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3), 0 10px 24px -6px rgba(255, 176, 32, 0.4);
+}
+
+.btn-primary:disabled {
+  background: var(--border);
+  color: var(--ink-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.btn-ghost:active {
+  background: var(--border-soft);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.back-link:hover {
+  color: var(--ink-dim);
+}
+
+/* ---------------------------------------------------------------
+   Form fields
+------------------------------------------------------------------ */
+
+.field {
+  width: 100%;
+  min-height: 52px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0 14px;
+}
+
+.field::placeholder {
+  color: var(--ink-faint);
+}
+
+.field:focus-visible {
+  border-color: var(--amber);
+}
+
+.phone-field {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.phone-field__code {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 5.4rem;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.phone-field__code select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.phone-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------
+   Channel picker cards
+------------------------------------------------------------------ */
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+
+.channel-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 84px;
+  padding: 12px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.channel-card input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.channel-card svg,
+.channel-card img {
+  width: 24px;
+  height: 24px;
+  color: var(--ink-dim);
+}
+
+.channel-card span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.channel-card:has(input:checked) {
+  border-color: var(--amber);
+  background: rgba(255, 176, 32, 0.08);
+  box-shadow: 0 0 0 1px var(--amber) inset;
+}
+
+.channel-card:has(input:checked) svg,
+.channel-card:has(input:checked) img {
+  color: var(--amber);
+}
+
+.channel-card:has(input:checked) span {
+  color: var(--ink);
+}
+
+.channel-card:has(input:focus-visible) {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------
+   Banners / hints
+------------------------------------------------------------------ */
+
+.banner {
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 14px 0;
+}
+
+.banner--warning {
+  background: rgba(242, 57, 74, 0.1);
+  border-color: rgba(242, 57, 74, 0.35);
+  color: #ffb3ba;
+}
+
+.banner--hint {
+  background: rgba(255, 176, 32, 0.1);
+  border-color: rgba(255, 176, 32, 0.35);
+  color: var(--ink);
+}
+
+.field-help {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  margin-top: 6px;
+}
+
+.hint-text {
+  display: block;
+  font-size: 0.8rem;
+  color: #ff8b95;
+  margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------
+   Code tiles — shared by OTP entry and the passphrase cracker
+------------------------------------------------------------------ */
+
+.tiles {
+  display: flex;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 10px);
+}
+
+.tile {
+  width: clamp(2.15rem, 13vw, 2.9rem);
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 4.5vw, 1.4rem);
+  text-align: center;
+  padding: 0;
+  caret-color: var(--amber);
+}
+
+.tile:focus-visible {
+  border-color: var(--amber);
+}
+
+.tile--filled {
+  border-color: var(--ink-faint);
+}
+
+.tile--green {
+  background: var(--green);
+  border-color: var(--green);
+  color: #0d2417;
+}
+
+.tile--amber {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
+}
+
+.tile--grey {
+  background: var(--steel);
+  border-color: var(--steel);
+  color: #16181b;
+}
+
+@keyframes tile-flip {
+  from {
+    transform: rotateX(90deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.tile--reveal {
+  animation: tile-flip 0.35s ease forwards;
+}
+
+/* ---------------------------------------------------------------
+   Puzzle screen specifics
+------------------------------------------------------------------ */
+
+.puzzle-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 16px 0 20px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.puzzle-legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto 18px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--green);
+  text-shadow: 0 0 12px rgba(52, 199, 123, 0.45);
+}
+
+.timer__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-shadow: none;
+}
+
+.timer--low {
+  color: var(--red);
+  text-shadow: 0 0 12px rgba(242, 57, 74, 0.5);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.guesses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+/* ---------------------------------------------------------------
+   Utility layout
+------------------------------------------------------------------ */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.center {
+  text-align: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------
+   Variable-length passphrase entry: tiles shrink to fit up to
+   MAX_WORD_LENGTH letters on a phone; one real input sits on top.
+------------------------------------------------------------------ */
+
+.guesses .tile {
+  width: min(
+    clamp(2.15rem, 13vw, 2.9rem),
+    calc((100% - (var(--tiles, 5) - 1) * clamp(6px, 2vw, 10px)) / var(--tiles, 5))
+  );
+  font-size: min(clamp(1.1rem, 4.5vw, 1.4rem), calc(60vw / var(--tiles, 5)));
+}
+
+.guesses .tiles {
+  width: 100%;
+}
+
+.tile--static {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile--cursor {
+  border-color: var(--amber);
+}
+
+.tiles--entry {
+  position: relative;
+  cursor: text;
+}
+
+.tiles__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  font-size: 16px; /* stops iOS zooming on focus */
+  caret-color: transparent;
+}
+
+.tiles--entry:focus-within .tile--cursor {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+.hints {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0;
+}
+
+.hints .banner {
+  margin: 0 0 8px;
+}
+
+.banner--fresh {
+  animation: tile-flip 0.35s ease;
+}
+
+/* ---------------------------------------------------------------
+   Kiosk mode (#4): one large touchscreen at the booth. Scales the
+   phone layout up rather than redesigning it, so both modes stay
+   one visual system.
+------------------------------------------------------------------ */
+
+.kiosk {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Spacing is kept tight so the tallest page (channel, with the keypad)
+   fits a portrait 1080x1920 stand at 150% scale (720x1280) without
+   scrolling. */
+.kiosk .page {
+  justify-content: flex-start;
+  padding: max(16px, env(safe-area-inset-top)) 32px max(16px, env(safe-area-inset-bottom));
+}
+
+.kiosk .brandbar {
+  margin: 4px 0 14px;
+}
+
+.kiosk .brandbar img {
+  height: 32px !important;
+}
+
+.kiosk .brandbar__mark {
+  font-size: 1rem;
+}
+
+.kiosk .plate,
+.kiosk .page__foot {
+  max-width: min(760px, 92vw);
+}
+
+.kiosk .plate {
+  padding: 28px 56px 32px;
+}
+
+.kiosk .eyebrow {
+  font-size: 1rem;
+}
+
+.kiosk .display {
+  font-size: clamp(3rem, 6vw, 4.5rem);
+}
+
+.kiosk .lede {
+  font-size: 1.35rem;
+  margin-bottom: 12px;
+}
+
+.kiosk .fine {
+  font-size: 1rem;
+}
+
+.kiosk .btn {
+  min-height: 76px;
+  font-size: 1.35rem;
+  border-radius: var(--radius-md);
+}
+
+.kiosk .back-link {
+  font-size: 1rem;
+  padding: 6px 0;
+}
+
+.kiosk .status-strip {
+  margin-bottom: 12px;
+}
+
+.kiosk .status-strip__step {
+  width: 130px;
+}
+
+.kiosk .status-strip__label {
+  font-size: 0.85rem;
+}
+
+.kiosk .status-strip__dot {
+  width: 14px;
+  height: 14px;
+}
+
+.kiosk .field {
+  min-height: 72px;
+  font-size: 1.5rem;
+}
+
+.kiosk .phone-field__code {
+  min-width: 8rem;
+  font-size: 1.3rem;
+}
+
+.kiosk .channel-card {
+  min-height: 96px;
+}
+
+.kiosk .channel-card svg,
+.kiosk .channel-card img {
+  width: 36px;
+  height: 36px;
+}
+
+.kiosk .channel-card span {
+  font-size: 0.95rem;
+}
+
+.kiosk .tile {
+  width: 4.5rem;
+  font-size: 2rem;
+}
+
+.kiosk .guesses .tile {
+  width: min(4.5rem, calc((100% - (var(--tiles, 5) - 1) * 10px) / var(--tiles, 5)));
+  font-size: 2rem;
+}
+
+.kiosk .timer {
+  font-size: 2rem;
+}
+
+.kiosk .timer__label {
+  font-size: 0.85rem;
+}
+
+.kiosk .puzzle-legend,
+.kiosk .banner,
+.kiosk .hint-text {
+  font-size: 1.1rem;
+}
+
+/* On-screen keyboard (#7) */
+
+.vkb {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 24px 0 8px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--plate-2);
+}
+
+.kiosk .vkb {
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.kiosk .vkb--pad .vkb__key {
+  min-height: 68px;
+}
+
+/* Keep the phone keypad high on the stand without shrinking touch targets. */
+.kiosk .channel-page .plate {
+  padding-top: 22px;
+  padding-bottom: 24px;
+}
+
+.kiosk .channel-page .status-strip {
+  margin-bottom: 8px;
+}
+
+.kiosk .channel-page .back-link {
+  padding: 2px 0;
+}
+
+.kiosk .channel-page .display {
+  font-size: clamp(2.6rem, 5vw, 3.6rem);
+  margin-bottom: 6px;
+}
+
+.kiosk .channel-page .lede {
+  font-size: 1.15rem;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+
+.kiosk .channel-page__storage {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  margin: 0 0 10px;
+}
+
+.kiosk .channel-page .channel-grid {
+  margin-bottom: 8px;
+}
+
+.kiosk .channel-page .vkb {
+  margin-top: 8px;
+}
+
+.kiosk .channel-page .field-help {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
+.kiosk .channel-page__consent {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin-top: 14px;
+}
+
+.vkb__row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.vkb--pad {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vkb--pad .vkb__row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.vkb__key {
+  flex: 1 1 0;
+  max-width: 64px;
+  min-height: 68px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.5rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease, background 0.08s ease, border-color 0.08s ease;
+}
+
+.vkb--pad .vkb__key {
+  max-width: none;
+  min-height: 76px;
+  font-size: 1.8rem;
+}
+
+.vkb__key--wide {
+  flex-grow: 1.6;
+  max-width: 104px;
+  font-size: 1.1rem;
+}
+
+.vkb__key--enter {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
+}
+
+.vkb__key:active,
+.vkb__key--pressed {
+  transform: translateY(2px) scale(0.97);
+  border-color: var(--amber);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 176, 32, 0.35);
+}
+
+.vkb__key:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vkb__key--spacer {
+  visibility: hidden;
+}
+
+/* Idle warning (#10) */
+
+.idle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 11, 14, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.idle-dialog {
+  max-width: 560px;
+  text-align: center;
+}
+
+.idle-dialog__count {
+  margin: 0 0 24px;
+  font-family: var(--font-mono);
+  font-size: 5rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 24px rgba(255, 176, 32, 0.45);
+}
+
+.idle-dialog__actions {
+  gap: 12px;
+}
+
+/* Win state (#8) */
+
+.win-cta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 20px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(52, 199, 123, 0.45);
+  background: rgba(52, 199, 123, 0.1);
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.win-cta__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #08140d;
+  font-size: 1.2rem;
+}
+
+.kiosk .win-cta {
+  font-size: 1.6rem;
+  padding: 24px 26px;
+}
+
+.kiosk .win-cta__icon {
+  width: 56px;
+  height: 56px;
+  font-size: 1.6rem;
+}
+
+.kiosk .field-help {
+  font-size: 1.05rem;
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.confetti__piece {
+  position: absolute;
+  top: -24px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.45, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(var(--drift), 110vh, 0) rotate(var(--spin));
+    opacity: 0;
+  }
+}

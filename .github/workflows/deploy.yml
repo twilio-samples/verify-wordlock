@@ -1,0 +1,61 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  deploy:
+    timeout-minutes: 30
+    runs-on: ubuntu-x64
+    # Secrets, variables and the Azure OIDC federated credential live on this
+    # environment (subject ...:environment:production).
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Azure login (OIDC)
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          ID_TOKEN=$(curl -sSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value')
+          az login --service-principal --username "$AZURE_CLIENT_ID" --tenant "$AZURE_TENANT_ID" --federated-token "$ID_TOKEN" --output none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+
+      # deploy.sh reads its configuration from an env file (.env.local by
+      # default); write one from repo secrets/variables so it runs the same
+      # way here as it does locally.
+      - name: Write deploy environment file
+        env:
+          TWILIO_ACCOUNT_SID: ${{ vars.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_VERIFY_SERVICE_SID: ${{ vars.TWILIO_VERIFY_SERVICE_SID }}
+          TWILIO_MESSAGING_SERVICE_SID: ${{ vars.TWILIO_MESSAGING_SERVICE_SID }}
+          TWILIO_CONTENT_SID: ${{ vars.TWILIO_CONTENT_SID }}
+          SYNC_SERVICE_SID: ${{ vars.SYNC_SERVICE_SID }}
+          ADMIN_CREDENTIALS: ${{ secrets.ADMIN_CREDENTIALS }}
+          CLIENT_ID: ${{ vars.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          PI_BASE_URL: ${{ secrets.PI_BASE_URL }}
+        run: |
+          cat > .env.local <<EOF
+          TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID
+          TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN
+          TWILIO_VERIFY_SERVICE_SID=$TWILIO_VERIFY_SERVICE_SID
+          TWILIO_MESSAGING_SERVICE_SID=$TWILIO_MESSAGING_SERVICE_SID
+          TWILIO_CONTENT_SID=$TWILIO_CONTENT_SID
+          SYNC_SERVICE_SID=$SYNC_SERVICE_SID
+          ADMIN_CREDENTIALS=$ADMIN_CREDENTIALS
+          CLIENT_ID=$CLIENT_ID
+          CLIENT_SECRET=$CLIENT_SECRET
+          PI_BASE_URL='$PI_BASE_URL'
+          EOF
+
+      # AZURE_RESOURCE_GROUP/LOCATION/CONTAINER_APP_NAME/CONTAINER_ENV_NAME are
+      # intentionally left unset so deploy.sh falls back to its defaults, which
+      # already match the running production app.
+      - name: Deploy to Azure Container Apps
+        run: ./deploy.sh

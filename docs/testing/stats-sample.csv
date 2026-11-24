@@ -1,0 +1,40 @@
+section,label,value
+funnel,Started,61
+funnel,Code Sent,55
+funnel,Verified,49
+funnel,Solved Puzzle,31
+funnel,Opened Box,31
+puzzle,Solved,31
+puzzle,Solve rate (of verified),63.3
+puzzle,Average guesses,3
+puzzle,Average seconds to solve,48.5
+puzzle,Median seconds to solve,46.2
+puzzle,Timed out,12
+puzzle,Unsolved (out of tries),6
+hints at solve,0,10
+hints at solve,1,11
+hints at solve,2,10
+idle resets,Total,24
+idle resets,Choosing a channel,6
+idle resets,Entering the code,6
+idle resets,Playing the puzzle,6
+idle resets,After timing out,6
+prizes,Twilio Socks,18
+prizes,Twilio T-shirt,13
+channels,sms,28
+channels,whatsapp,15
+channels,call,12
+calling codes,"United States, Canada (+1)",18
+calling codes,Germany (+49),13
+calling codes,"United Kingdom, Guernsey and 2 more (+44)",6
+calling codes,France (+33),6
+calling codes,India (+91),6
+calling codes,"Canary Islands, Spain (+34)",6
+sessions per hour (UTC),2026-10-05T16:00:00.000Z,1
+sessions per hour (UTC),2026-10-05T17:00:00.000Z,9
+sessions per hour (UTC),2026-10-05T18:00:00.000Z,8
+sessions per hour (UTC),2026-10-05T19:00:00.000Z,9
+sessions per hour (UTC),2026-10-05T20:00:00.000Z,9
+sessions per hour (UTC),2026-10-05T21:00:00.000Z,8
+sessions per hour (UTC),2026-10-05T22:00:00.000Z,8
+sessions per hour (UTC),2026-10-05T23:00:00.000Z,9
